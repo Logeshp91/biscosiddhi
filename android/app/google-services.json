@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "942343601232",
+    "project_id": "biscosidhi",
+    "storage_bucket": "biscosidhi.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:942343601232:android:feb8ae65b67c4c433be555",
+        "android_client_info": {
+          "package_name": "com.biscosiddhi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBavZXDKZ5xEMRW9LP0azrkJI1Lkkm08oY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:942343601232:android:71ebac509c85da903be555",
+        "android_client_info": {
+          "package_name": "com.biztech"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBavZXDKZ5xEMRW9LP0azrkJI1Lkkm08oY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:942343601232:android:48430bef84499fc93be555",
+        "android_client_info": {
+          "package_name": "com.example.bisco_sidhi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBavZXDKZ5xEMRW9LP0azrkJI1Lkkm08oY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

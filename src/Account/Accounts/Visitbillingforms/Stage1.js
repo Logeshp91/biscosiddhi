@@ -336,8 +336,6 @@ const AddLineItems = async () => {
               </View>
             </View>
           </Modal>
-
-          {/* Lost Reason Modal */}
           <Modal
             animationType="slide"
             transparent

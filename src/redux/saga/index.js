@@ -7,6 +7,8 @@ import postAccessReadSaga from "./postAccessRead.Saga";
 import postConvertSaga from "./postConvert.Saga";
 import postOutstandingSaga from "./postOutstanding.Saga";
 import postCustomerListSaga from "./postCustomerList.Saga";
+import notificationSaga from "./notificationSaga"; 
+
 export default function* (){
    
     yield takeLatest(actionType.POST_POSTAUTHENDICATION_REQUEST,postauthendicationSaga)
@@ -16,5 +18,5 @@ export default function* (){
     yield takeLatest(actionType.POST_CONVERT_REQUEST, postConvertSaga);
     yield takeLatest(actionType.POST_OUTSTANDING_REQUEST, postOutstandingSaga);
     yield takeLatest(actionType.POST_CUSTOMERLIST_REQUEST, postCustomerListSaga);
-
+    notificationSaga();
 }

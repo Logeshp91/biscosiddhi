@@ -32,8 +32,8 @@
 // };
 
 import axios from 'axios'; 
-// export const baseUrl = "https://testserver.biztechnovations.com"; 
-export const baseUrl = "https://devserver.biztechnovations.com";
+export const baseUrl = "https://testserver.biztechnovations.com"; 
+// export const baseUrl = "https://devserver.biztechnovations.com";
 // export const baseUrl = "https://siddhi.biscogroup.com";
  export const endPoint = {
  postauthendication: '/web/session/authenticate', 

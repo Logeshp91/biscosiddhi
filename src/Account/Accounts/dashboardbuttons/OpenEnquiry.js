@@ -29,6 +29,8 @@ const OpenEnquiry = () => {
   const [selectedStatus, setSelectedStatus] = useState(null);
   const [buttonLoading, setButtonLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
+  const [todayFollowupCount, setTodayFollowupCount] = useState(0);
+
   const PAGE_SIZE = 10;
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -97,6 +99,24 @@ const OpenEnquiry = () => {
     if (postcreatevisitData.length < PAGE_SIZE) setHasMore(false);
   }, [postcreatevisitData, page]);
 
+useEffect(() => {
+  if (activeTab === "TodayFollowup") {
+    const today = new Date().toISOString().split("T")[0];
+
+    const payload = {
+      jsonrpc: "2.0",
+      method: "call",
+      params: {
+        model: "customer.visit",
+        method: "search_count",
+        args: [[["followup_date", "=", today]]],
+        kwargs: {},
+      },
+    };
+
+    dispatch(postCustomerList(payload, "TodayFollowup"));
+  }
+}, [activeTab, dispatch]);
 
 
 
@@ -215,6 +235,12 @@ const fetchEnquiries = useCallback(
   [dispatch]
 );
 
+useEffect(() => {
+  if (activeTab === "VisitList") {
+    fetchEnquiries(0, "All", "");
+    setSelectedStatus("All");  
+  }
+}, [activeTab]);
 
   useEffect(() => {
     if (selectedSO && productsData) {
@@ -275,6 +301,9 @@ const fetchEnquiries = useCallback(
  const TodayFollowupData = useSelector(
     (state) => state.postCustomerListReducer.data["TodayFollowup"]
   );
+const customers = customerData ?? [];
+
+    const today = new Date().toISOString().split("T")[0]; 
 
   const fetchOutstanding = useCallback(() => {
     const payload = {
@@ -581,6 +610,31 @@ const fetchEnquiries = useCallback(
     });
   }, [enquiries, searchText, statusFilter]);
 
+const filteredCustomers = useMemo(() => {
+  const text = (searchText ?? "").toLowerCase();
+
+  return customers.filter((item) => {
+    const name = String(item.name ?? "").toLowerCase();
+    const phone = String(item.phone ?? "").toLowerCase();
+    const mobile = String(item.mobile ?? "").toLowerCase();
+    const email = String(item.email ?? "").toLowerCase();
+    const city = String(item.city ?? "").toLowerCase();
+    const state = Array.isArray(item.state_id)
+      ? String(item.state_id[1] ?? "").toLowerCase()
+      : "";
+
+    return (
+      name.includes(text) ||
+      phone.includes(text) ||
+      mobile.includes(text) ||
+      email.includes(text) ||
+      city.includes(text) ||
+      state.includes(text)
+    );
+  });
+}, [customers, searchText]);
+
+
   const renderItem = ({ item }) => {
     const status = (item.state || "").toString().trim().toLowerCase();
     const soIdNum = Array.isArray(item.so_id) ? item.so_id[0] : item.so_id;
@@ -884,12 +938,16 @@ const fetchEnquiries = useCallback(
             <Icon name="add" size={24} color="#fff" />
           </TouchableOpacity>
         </View>
-        <Text style={OpenEnquiryStyles.totalCountTextlabel}>
-          Total List:{" "}
-          <Text style={OpenEnquiryStyles.totalCountTextValue}>
-            {activeTab === "CustomerList" ? customerCountData : visitCountData ?? 0}
-          </Text>
-        </Text>
+      {/* <Text style={OpenEnquiryStyles.totalCountTextlabel}>
+  Total List:{" "}
+  <Text style={OpenEnquiryStyles.totalCountTextValue}>
+    {activeTab === "CustomerList"
+      ? customerCountData
+      : activeTab === "VisitList"
+      ? visitCountData
+      : todayFollowupCount}
+  </Text>
+        </Text> */}
         <Modal
           animationType="slide"
           transparent={true}
@@ -1012,10 +1070,13 @@ const fetchEnquiries = useCallback(
               </View>
             )
           ) : activeTab === "CustomerList" ? (
-            <CustomerList searchText={searchText} statusFilter={statusFilter} />
+       <CustomerList
+  customers={customers}
+  searchText={searchText}
+/>
           ) : (
 
-  <TodayFollowup searchText={searchText} />        
+  <TodayFollowup searchText={filteredCustomers} />        
           )}
         </View>
       </View>

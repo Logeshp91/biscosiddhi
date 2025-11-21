@@ -12,7 +12,10 @@ import FontAwesome6 from 'react-native-vector-icons/FontAwesome6';
 import Entypo from 'react-native-vector-icons/Entypo';
 import Foundation from 'react-native-vector-icons/Foundation';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import messaging from '@react-native-firebase/messaging';
 import { useDispatch, useSelector } from 'react-redux';
+import { addNotification } from "../redux/action";
+
 const Tab = createBottomTabNavigator();
 const Drawer = createDrawerNavigator();
 
@@ -21,15 +24,20 @@ const TabNavigation = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isPanelVisible, setIsPanelVisible] = useState(false);
   const [notificationVisible, setNotificationVisible] = useState(false);
+  const [pushNotifications, setPushNotifications] = useState([]);
+
   const PANEL_WIDTH = 250;
   const slideAnim = useRef(new Animated.Value(PANEL_WIDTH)).current;
   const screenWidth = Dimensions.get('window').width;
   const navigation = useNavigation();
+  const dispatch = useDispatch();
+
   const { postauthendicationData } = useSelector(state => state.postauthendicationReducer);
   const user = postauthendicationData || {};
   const firstLetter = user.partner_display_name
     ? user.partner_display_name.charAt(0).toUpperCase()
     : '';
+
 
   const EmptyScreen = () => {
     return null;
@@ -82,6 +90,41 @@ const TabNavigation = () => {
     }
   }, [isPanelVisible]);
 
+useEffect(() => {
+  const unsubscribe = messaging().onMessage(async remoteMessage => {
+    const newNotification = {
+      id: Date.now().toString(),
+      title: remoteMessage.notification?.title || "New Notification",
+      body: remoteMessage.notification?.body || "",
+    };
+
+    // 1️⃣ Save in Redux
+    dispatch(addNotification(newNotification));
+
+    // 2️⃣ Save in local panel list
+    setPushNotifications(prev => [newNotification, ...prev]);
+  });
+
+  return unsubscribe;
+}, []);
+
+const handleNotificationClick = (item) => {
+  setIsPanelVisible(false); 
+
+  if (item.title.includes("OpenEnquiry")) {
+    navigation.navigate("OpenEnquiry");
+  } 
+  else if (item.title.includes("Report")) {
+    navigation.navigate("Reports");
+  }
+  else {
+    navigation.navigate("OpenEnquiry"); 
+  }
+
+ setPushNotifications(prev =>
+  prev.filter(notif => notif.id !== item.id)
+);
+};
 
   return (
     <>
@@ -120,6 +163,18 @@ const TabNavigation = () => {
             ),
             headerRight: () => (
               <View style={styles.headerRightWrapper}>
+                    <TouchableOpacity
+      style={styles.notificationButton}
+      onPress={() => setIsPanelVisible(true)}
+    >
+      <MaterialIcons name="notifications-none" size={28} color="#fff" />
+
+   {pushNotifications.length > 0 && (
+  <View style={styles.badge}>
+    <Text style={styles.badgeText}>{pushNotifications.length}</Text>
+  </View>
+)}
+    </TouchableOpacity>
              <TouchableOpacity onPress={() => navigation.toggleDrawer()}>
   <View style={styles.circleAvatar}>
     <Text style={styles.avatarLetter}>{firstLetter}</Text>
@@ -194,12 +249,26 @@ const TabNavigation = () => {
         >
           <Text style={styles.panelTitle}>Notifications</Text>
 
-          <View style={styles.notificationItem}>
-            <Text style={styles.notificationText}>📢 New update available!</Text>
-          </View>
-          <View style={styles.notificationItem}>
-            <Text style={styles.notificationText}>👤 New customer added</Text>
-          </View>
+       {pushNotifications.length === 0 ? (
+  <Text style={{ color: "#777", textAlign: "center", marginTop: 10 }}>
+    No notifications yet
+  </Text>
+) :pushNotifications.map(item => (
+  <TouchableOpacity
+    key={item.id}
+    style={styles.notificationItem}
+    onPress={() => handleNotificationClick(item)}
+  >
+    <Text style={styles.notificationText}>🔔 {item.title}</Text>
+
+    {item.body ? (
+      <Text style={{ fontSize: 12, color: "#888", marginTop: 2 }}>
+        {item.body}
+      </Text>
+    ) : null}
+  </TouchableOpacity>
+)
+)}
 
           <TouchableOpacity
             style={styles.closePanelBtn}

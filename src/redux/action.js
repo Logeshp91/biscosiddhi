@@ -46,6 +46,13 @@ export const postConvert = (payload, requestKey) => {
   };
 };
 
+export const addNotification = (payload) => {
+  return {
+    type: actionTypes.ADD_NOTIFICATION,
+    payload,
+  };
+};
+
 export const odooCallRequest = ({ model, method, args = [], kwargs = {}, requestKey }) => ({
   type: actionTypes.ODOO_CALL_REQUEST,
   payload: { model, method, args, kwargs, requestKey },

@@ -19,6 +19,9 @@ import { postauthendication } from '../../redux/action';
 import Geolocation from 'react-native-geolocation-service';
 import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { getAnalytics, logEvent } from '@react-native-firebase/analytics';
+import { getApp } from '@react-native-firebase/app';
+
 
 const Login = ({ navigation }) => {
   const dispatch = useDispatch();
@@ -38,7 +41,13 @@ const Login = ({ navigation }) => {
 
   const pinInputs = useRef([]);
 
-  // ✅ Handle Login API result
+const app = getApp();
+const analytics = getAnalytics(app);
+
+logEvent(analytics, 'screen_view', {
+  screen_name: 'Login',
+});
+
   useEffect(() => {
     if (postauthendicationLoading) return;
 
@@ -54,7 +63,6 @@ const Login = ({ navigation }) => {
     }
   }, [postauthendicationLoading, postauthendicationData, postauthendicationError, postauthendicationErrorInvalid]);
 
-  // ✅ Autofill SIM number
   useEffect(() => {
     if (mobileNumber && !phone) setPhone(mobileNumber);
   }, [mobileNumber]);
@@ -139,7 +147,7 @@ const Login = ({ navigation }) => {
     const loginPayload = {
       jsonrpc: '2.0',
       params: {
-        db: 'siddhi_live_23102025',
+        db: 'bisco_siddhi_19112025',
         login: phone.trim(),
         password: password.trim(),
         latitude: location?.latitude || 0,
@@ -207,7 +215,6 @@ const Login = ({ navigation }) => {
                 />
               </TouchableOpacity>
             </View>
-
             <TouchableOpacity
               onPress={handleLogin}
               style={[

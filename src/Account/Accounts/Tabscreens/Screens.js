@@ -11,41 +11,32 @@ import {
   UIManager, Platform, BackHandler, Image
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { postcreatevisit } from '../../../redux/action';
+import { postcreatevisit, postCustomerList } from '../../../redux/action';
 import { useDispatch, useSelector } from 'react-redux';
 import { BarChart, LineChart } from 'react-native-chart-kit';
 import BarChartSolid from './BarChartSolid';
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from 'react-native-responsive-screen';
+import DeviceInfo from 'react-native-device-info';
 
 const Screens = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch();
   const scrollY = useRef(new Animated.Value(0)).current;
 
+
+  const isTablet = DeviceInfo.isTablet();
+
+  console.log(isTablet)
+
   const screenWidth = Dimensions.get('window').width;
-  const [selectedTab, setSelectedTab] = useState(null);
-const chartWidth = wp('45%');
-const chartHeight = hp('18%'); 
-
+  const chartWidth = isTablet ? wp('47%') : wp('45%');
+  const chartHeight = isTablet ? hp('26%') : hp('18%');
   const [todayFollowUps, setTodayFollowUps] = useState([]);
-  const [totalListCount, setTotalListCount] = useState(0);
-  const [completedCount, setCompletedCount] = useState(0);
-  const [OutstandingCount, setOutstandingCount] = useState(0);
-  const [ApprovedListCount, setApprovedListCount] = useState(0);
-  const [lostlistCount, setLostlistCount] = useState(0);
-  const [progressValue, setProgressValue] = useState(0);
-  const [CollectionValue, setCollectionValue] = useState(0);
   const [showThirdChart, setShowThirdChart] = useState(false);
+  const [plannedCount, setPlannedCount] = useState(0);
+const [completedCount, setCompletedCount] = useState(0);
 
-  const [enquiries, setEnquiries] = useState([]);
-const [offset, setOffset] = useState(0);
-const limit = 10;
-const [loading, setLoading] = useState(false);
-const [hasMore, setHasMore] = useState(true);
-
-  const collectionAnim = useRef(new Animated.Value(0)).current;
-  const progressAnim = useRef(new Animated.Value(0)).current;
-
+  const limit = 10;
 
   const postcreatevisitData = useSelector(
     (state) => state.postcreatevisitReducer.data["openEnquiryListdata"] || []
@@ -53,13 +44,19 @@ const [hasMore, setHasMore] = useState(true);
   const postcreatevisitLoading = useSelector(
     (state) => state.postcreatevisitReducer.loading["openEnquiryListdata"]
   );
+    const postCustomerListPlanned = useSelector(
+    (state) => state.postcreatevisitReducer.data["plannedcountdata"] || []
+  );
+    const postCustomerListCompleted = useSelector(
+    (state) => state.postcreatevisitReducer.data["completedcountdata"] || []
+  );
+
   const { postauthendicationData } = useSelector(state => state.postauthendicationReducer);
   const user = postauthendicationData || {};
 
   const now = new Date();
   const hours = now.getHours();
 
-  // Dynamic greeting based on time
   let greetingText = '';
   if (hours < 12) {
     greetingText = 'Good Morning';
@@ -69,7 +66,6 @@ const [hasMore, setHasMore] = useState(true);
     greetingText = 'Good Evening';
   }
 
-  // Format today's date (e.g., Tuesday, Sep 2)
   const options = { weekday: 'long', month: 'short', day: 'numeric' };
   const formattedDate = now.toLocaleDateString('en-US', options);
 
@@ -86,13 +82,74 @@ const [hasMore, setHasMore] = useState(true);
 
   const backPressRef = useRef(0);
 
+  const fetchVisitCounts = async () => {
+  try {
+    const today = new Date().toISOString().split("T")[0];
+
+    const basePayload = {
+      jsonrpc: "2.0",
+      method: "call",
+      params: { model: "customer.visit", method: "search_count", kwargs: {} }
+    };
+
+    const plannedPayload = {
+      ...basePayload,
+      params: {
+        ...basePayload.params,
+        args: [
+          [
+            ["followup_date", "=", today],
+            ["so_id", "=", false] 
+          ]
+        ]
+      }
+    };
+
+    const completedPayload = {
+      ...basePayload,
+      params: {
+        ...basePayload.params,
+        args: [
+          [
+            ["create_date", "=", today],
+            ["so_id", "!=", false]  
+          ]
+        ]
+      }
+    };
+
+    const dispatchAsync = (payload, key) =>
+      new Promise((resolve, reject) => {
+        dispatch(postCustomerList(payload, key, (res, err) => {
+          if (err) reject(err);
+          else resolve(res);
+        }));
+      });
+
+    const plannedResponse = await dispatchAsync(plannedPayload, "plannedCount");
+    const completedResponse = await dispatchAsync(completedPayload, "completedCount");
+
+    setPlannedCount(plannedResponse || 0);
+    setCompletedCount(completedResponse || 0);
+
+  } catch (error) {
+    console.log("Error fetching visit counts", error);
+  }
+};
+
+
+useFocusEffect(
+  React.useCallback(() => {
+    fetchVisitCounts();
+  }, [dispatch])
+);
+
   useFocusEffect(
     React.useCallback(() => {
       const backAction = () => {
-        // Check if we are on root screen
         const state = navigation.getState();
         const currentRoute = state.routes[state.index];
-        const isRootScreen = currentRoute.name === 'Screens'; // root check
+        const isRootScreen = currentRoute.name === 'Screens'; 
 
         if (!isRootScreen) {
           navigation.goBack();
@@ -101,7 +158,7 @@ const [hasMore, setHasMore] = useState(true);
 
         const timeNow = Date.now();
         if (backPressRef.current && timeNow - backPressRef.current < 2000) {
-          BackHandler.exitApp(); // exit app on second press
+          BackHandler.exitApp(); 
           return true;
         }
 
@@ -119,39 +176,6 @@ const [hasMore, setHasMore] = useState(true);
     }, [navigation])
   );
 
-  // useFocusEffect(
-  //   React.useCallback(() => {
-  //     // Collection Animation
-  //     collectionAnim.setValue(0); // reset
-  //     const collectionListener = collectionAnim.addListener(({ value }) => {
-  //       setCollectionValue(Math.round(value));
-  //     });
-
-  //     Animated.timing(collectionAnim, {
-  //       toValue: 80,
-  //       duration: 1500,
-  //       useNativeDriver: false,
-  //     }).start();
-
-  //     // Progress Animation
-  //     progressAnim.setValue(0); // reset
-  //     const progressListener = progressAnim.addListener(({ value }) => {
-  //       setProgressValue(Math.round(value));
-  //     });
-
-  //     Animated.timing(progressAnim, {
-  //       toValue: 52,
-  //       duration: 1500,
-  //       useNativeDriver: false,
-  //     }).start();
-
-  //     return () => {
-  //       collectionAnim.removeListener(collectionListener);
-  //       progressAnim.removeListener(progressListener);
-  //     };
-  //   }, [])
-  // );
-  
   useFocusEffect(
     React.useCallback(() => {
       const payload = {
@@ -178,7 +202,7 @@ const [hasMore, setHasMore] = useState(true);
               "create_date",
               "billing_branch_id"
             ],
-               order: "id desc",
+            order: "id desc",
           },
         },
       };
@@ -191,24 +215,23 @@ const [hasMore, setHasMore] = useState(true);
       UIManager.setLayoutAnimationEnabledExperimental(true);
     }
   }, []);
-useEffect(() => {
-  if (Array.isArray(postcreatevisitData)) {
-    const today = new Date().toISOString().split('T')[0];
-    const todaysFollowups = postcreatevisitData.filter(item => 
-      item.followup_date && new Date(item.followup_date).toISOString().split('T')[0] === today
-    );
+  useEffect(() => {
+    if (Array.isArray(postcreatevisitData)) {
+      const today = new Date().toISOString().split('T')[0];
+      const todaysFollowups = postcreatevisitData.filter(item =>
+        item.followup_date && new Date(item.followup_date).toISOString().split('T')[0] === today
+      );
 
-    // Compare previous IDs to avoid unnecessary state update
-    const prevIds = todayFollowUps.map(i => i.id).join(',');
-    const newIds = todaysFollowups.map(i => i.id).join(',');
+      const prevIds = todayFollowUps.map(i => i.id).join(',');
+      const newIds = todaysFollowups.map(i => i.id).join(',');
 
-    if (prevIds !== newIds) {
-      setTodayFollowUps(todaysFollowups);
+      if (prevIds !== newIds) {
+        setTodayFollowUps(todaysFollowups);
+      }
     }
-  }
-}, [postcreatevisitData]);
+  }, [postcreatevisitData]);
 
-  
+
   if (postcreatevisitLoading) {
     return (
       <View style={styles.center}>
@@ -242,19 +265,25 @@ useEffect(() => {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{}}
           >
-            <View style={{ flexDirection: "row" ,}}>
+            <View style={{ flexDirection: "row", }}>
               <ImageBackground
                 source={require('../../../assets/Rectangle.png')}
-                style={styles.circleBackground1}
+                style={[
+                  styles.circleBackground1,
+                  {
+                    width: isTablet ? wp('31%') : wp('30%'),
+                    height: isTablet ? hp('31%') : hp('22%'),
+                  }
+                ]}
               >
                 <View style={{ alignItems: 'flex-start', padding: 10 }}>
-                  <Text style={styles.targetTextTitle}>Sales Target</Text>
+                  <Text style={[styles.targetTextTitle, { marginLeft: isTablet ? wp('5%') : wp('0.5%'), }]}>Sales Target</Text>
                   <View style={{ flexDirection: "row" }}>
-                    <Text style={styles.targetTextValue}>100 {" "}</Text>
+                    <Text style={[styles.targetTextValue, isTablet && { marginLeft: wp('5%') }]}>100 {""} </Text>
                     <Text style={styles.targetTextValue}>MT</Text>
                   </View>
                   <View style={{ flexDirection: "row" }}>
-                    <Text style={styles.targetText}>Achieved</Text>
+                    <Text style={[styles.targetText, isTablet && { marginLeft: wp('5%') }]}>Achieved</Text>
                     <Text style={styles.targetText1}>{" "}82</Text>
                     <Text style={styles.targetText2}>{" "}MT</Text>
                   </View>
@@ -271,38 +300,27 @@ useEffect(() => {
                       marginBottom: 5,
                     }}
                   >
-                    {/* <CircularProgress
-                      value={CollectionValue}
-                      maxValue={100}
-                      radius={30}
-                      activeStrokeWidth={12}
-                      inActiveStrokeWidth={12}
-                      activeStrokeColor="#57D6E2"
-                      inActiveStrokeColor="#9c9c9cff"
-                      inActiveStrokeOpacity={0.3}
-                      duration={1200}
-                      progressValueColor="#11033B"
-                      progressValueStyle={{ fontFamily: 'Inter-Bold', fontSize: 20 }}
-                      valueSuffix="%"
-                      renderCap={() => <Text style={{ display: 'none' }} />}
-                      innerCircleColor="#FFFFFF"
-                    /> */}
                   </View>
                 </View>
               </ImageBackground>
               <ImageBackground
                 source={require('../../../assets/Rectangle2.png')}
-                style={styles.circleBackground2}
-                resizeMode="cover"
-              >
-                <View style={{ alignItems: 'flex-start', marginLeft: 5, marginTop: 7 }}>
-                  <Text style={styles.targetTextTitle}>Collection Target</Text>
+                style={[
+                  styles.circleBackground2,
+                  {
+                    width: isTablet ? wp('33%') : wp('34%'),
+                    height: isTablet ? hp('31%') : hp('22%'),
+                  }
+                ]}
+                resizeMode="cover">
+                <View style={{ alignItems: 'flex-start', marginLeft: isTablet ? 20 : 5, marginTop: isTablet ? 10 : 7, }}>
+                  <Text style={[styles.targetTextTitle, { marginLeft: isTablet ? wp('3%') : wp('0.5%'), }]}>Collection Target</Text>
                   <View style={{ flexDirection: "row" }}>
-                    <Text style={styles.targetTextValue}>₹</Text>
+                    <Text style={[styles.targetTextValue, isTablet && { marginLeft: wp('3%') }]}>₹</Text>
                     <Text style={styles.targetTextValue}>50,00,000</Text>
                   </View>
                   <View style={{ flexDirection: "row", marginBottom: 10 }}>
-                    <Text style={styles.targetText}>Collected{" "}</Text>
+                    <Text style={[styles.targetText, isTablet && { marginLeft: wp('3%') }]}>Collected{" "}</Text>
                     <Text style={styles.targetText1}>₹{" "}</Text>
                     <Text style={styles.targetText2}>28,00,000</Text>
                   </View>
@@ -319,97 +337,125 @@ useEffect(() => {
                       marginBottom: 5,
                     }}
                   >
-                    {/* <CircularProgress
-                      value={progressValue}
-                      maxValue={100}
-                      radius={30}
-                      activeStrokeWidth={12}
-                      inActiveStrokeWidth={12}
-                      activeStrokeColor="#57D6E2"
-                      inActiveStrokeColor="#9c9c9cff"
-                      inActiveStrokeOpacity={0.3}
-                      duration={1200}
-                      progressValueColor="#11033B"
-                      progressValueStyle={{
-                        fontFamily: 'Inter-Bold',
-                        fontSize: 20,
-                      }}
-                      renderCap={() => <Text style={{ display: 'none' }} />}
-                      valueSuffix="%"
-                    /> */}
                   </View>
                 </View>
               </ImageBackground>
 
-              <ImageBackground
-                source={require('../../../assets/Rectangle3.png')}
-                style={styles.circleBackground3}
-                resizeMode="cover"
-              >
-                <View style={{ alignItems: 'flex-start', marginLeft: 10, marginTop: 7 }}>
-                  <Text style={styles.targetTextTitleVisit}>Visit</Text>
-                  <View style={{ flexDirection: "row", marginBottom: 5, }}>
-                    <Text style={styles.targetText}>Planned </Text>
-                    <Text style={styles.targetText1}>20</Text>
-                  </View>
-                  <View style={{ flexDirection: "row", marginBottom: 15, }}>
-                    <Text style={styles.targetText}>completed </Text>
-                    <Text style={styles.targetText1}>20</Text>
-                  </View>
-                </View>
-                <View style={{
-                  width: '80%',
-                  marginTop: 10,
-                  marginLeft: 10,
-                  marginBottom: 10
-                }}>
-                  <View style={{
-                    height: 8,
-                    width: '90%',
-                    backgroundColor: '#D9D9D9',
-                    borderRadius: 5,
-                    overflow: 'hidden',
-                  }}>
-                    <View style={{
-                      height: '100%',
-                      width: '40%',
-                      backgroundColor: '#57D6E2',
-                    }} />
-                  </View>
-                </View>
+             <TouchableOpacity
+  activeOpacity={0.7}
+  onPress={() => navigation.navigate("Visitplanning")}
+>
+  <ImageBackground
+    source={require('../../../assets/Rectangle3.png')}
+    resizeMode="cover"
+    style={[
+      styles.circleBackground3,
+      {
+        width: isTablet ? wp('27%') : wp('27%'),
+        height: isTablet ? hp('31%') : hp('22%'),
+        marginLeft: isTablet ? wp('2%') : wp('1.5%'),
+        marginTop: isTablet ? hp('1%') : hp('1%'),
+      },
+    ]}
+  >
+    <View
+      style={{
+        alignItems: 'flex-start',
+        marginLeft: isTablet ? 25 : 10,
+        marginTop: isTablet ? 25 : 7,
+      }}
+    >
+      <Text
+        style={[
+          styles.targetTextTitleVisit,
+          { marginLeft: isTablet ? wp('1%') : wp('0.5%') },
+        ]}
+      >
+        Visit
+      </Text>
 
-                <View style={{ flexDirection: "row", marginLeft: 6 }}>
-                  <Text style={styles.targetTextValue}>₹</Text>
-                  <Text style={styles.targetTextValue}>1,00,000</Text>
-                </View>
-              </ImageBackground>
+      <View style={{ flexDirection: 'row', marginBottom: 5 }}>
+        <Text style={[styles.targetText, isTablet && { marginLeft: wp('1%') }]}>
+          Planned{' '}
+        </Text>
+        <Text style={styles.targetText1}>{plannedCount}</Text>
+      </View>
+
+      <View style={{ flexDirection: 'row', marginBottom: 15 }}>
+        <Text style={[styles.targetText, isTablet && { marginLeft: wp('1%') }]}>
+          Completed{' '}
+        </Text>
+        <Text style={styles.targetText1}>{completedCount}</Text>
+      </View>
+    </View>
+
+    <View
+      style={{
+        width: '80%',
+        marginTop: 10,
+        marginLeft: isTablet ? wp('3%') : 10,
+        marginBottom: 10,
+      }}
+    >
+      <View
+        style={{
+          height: 8,
+          width: '90%',
+          backgroundColor: '#D9D9D9',
+          borderRadius: 5,
+          overflow: 'hidden',
+        }}
+      >
+        <View
+          style={{
+            height: '100%',
+            width: '40%',
+            backgroundColor: '#57D6E2',
+          }}
+        />
+      </View>
+    </View>
+
+    <View style={{ flexDirection: 'row', marginLeft: isTablet ? 20 : 6 }}>
+      <Text
+        style={[
+          styles.targetTextValue,
+          isTablet && { marginLeft: wp('2%') },
+        ]}
+      >
+        ₹
+      </Text>
+      <Text style={styles.targetTextValue}>1,00,000</Text>
+    </View>
+  </ImageBackground>
+</TouchableOpacity>
             </View>
 
 
             <View>
-<TouchableOpacity
-  onPress={() => navigation.navigate('ProductList')}
-  style={{
-    width: wp('30%'),         
-    height: hp('20%'),         
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#250588', 
-    borderRadius: hp('1%'),  
-    marginLeft: wp('2%'),
-    marginTop: hp('1%'),
-    elevation: 5, 
-  }}
->
-  <Text style={{
-    color: '#ffffff', 
-    fontSize: hp('2%'), 
-    fontWeight: '600',
-    textAlign: 'center'
-  }}>
-    Product List
-  </Text>
-</TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('ProductList')}
+                style={{
+                  width: wp('30%'),
+                  height: hp('20%'),
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  backgroundColor: '#250588',
+                  borderRadius: hp('1%'),
+                  marginLeft: wp('2%'),
+                  marginTop: hp('1%'),
+                  elevation: 5,
+                }}
+              >
+                <Text style={{
+                  color: '#ffffff',
+                  fontSize: hp('2%'),
+                  fontWeight: '600',
+                  textAlign: 'center'
+                }}>
+                  Product List
+                </Text>
+              </TouchableOpacity>
 
             </View>
           </ScrollView>
@@ -431,86 +477,129 @@ useEffect(() => {
 
               <View >
                 <ImageBackground
-    source={require('../../../assets/Rectanglelist.png')}
-    style={styles.cardBackground}
-    imageStyle={styles.cardImage}
-  >
-    <View style={styles.cardContent}>
-      <Image source={require('../../../assets/allList.png')} style={styles.cardIcon} resizeMode="contain" />
-      <TouchableOpacity onPress={() => navigation.navigate('OpenEnquiry')}>
-        <Text style={styles.cardLabel}>Visit</Text>
-      </TouchableOpacity>
-    </View>
-  </ImageBackground>
+                  source={require('../../../assets/Rectanglelist.png')}
+                style={[
+                  styles.cardBackground,
+                  {
+                    width: isTablet ? wp('45%') : wp('45%'),
+                    height: isTablet ? hp('12%') : hp('8%'),
+                    marginRight: isTablet ? wp('3%') : wp('4%'),
+                  }
+                ]}
+                  imageStyle={styles.cardImage}
+                >
+                  <View style={styles.cardContent}>
+                    <Image source={require('../../../assets/allList.png')} style={styles.cardIcon} resizeMode="contain" />
+                    <TouchableOpacity onPress={() => navigation.navigate('OpenEnquiry')}>
+                      <Text style={styles.cardLabel}>Visit</Text>
+                    </TouchableOpacity>
+                  </View>
+                </ImageBackground>
                 <View style={{ marginTop: 10 }}>
-                   <ImageBackground
-    source={require('../../../assets/Rectanglelist.png')}
-    style={styles.cardBackground}
-    imageStyle={styles.cardImage}
-  >
-    <View style={styles.cardContent}>
-      <Image source={require('../../../assets/pendingicon.png')} style={styles.cardIcon} resizeMode="contain" />
-      <TouchableOpacity onPress={() => navigation.navigate('Deliveries')}>
-        <Text style={styles.cardLabel}>Deliveries</Text>
-      </TouchableOpacity>
-    </View>
-  </ImageBackground>
+                  <ImageBackground
+                    source={require('../../../assets/Rectanglelist.png')}
+                     style={[
+                  styles.cardBackground,
+                  {
+                    width: isTablet ? wp('45%') : wp('45%'),
+                    height: isTablet ? hp('12%') : hp('8%'),
+                    marginRight: isTablet ? wp('3%') : wp('4%'),
+                  }
+                ]}
+                  imageStyle={styles.cardImage}
+                >
+                    <View style={styles.cardContent}>
+                      <Image source={require('../../../assets/pendingicon.png')} style={styles.cardIcon} resizeMode="contain" />
+                      <TouchableOpacity onPress={() => navigation.navigate('Deliveries')}>
+                        <Text style={styles.cardLabel}>Deliveries</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </ImageBackground>
                 </View>
               </View>
               <View style={{}}>
-                 <ImageBackground
-    source={require('../../../assets/Rectanglelist.png')}
-    style={styles.cardBackground}
-    imageStyle={styles.cardImage}
-  >
-    <View style={styles.cardContent}>
-      <Image source={require('../../../assets/Approvedicon.png')} style={styles.cardIcon} resizeMode="contain" />
-      <TouchableOpacity onPress={() => navigation.navigate('ApprovedList')}>
-        <Text style={styles.cardLabel}>Approved</Text>
-      </TouchableOpacity>
-    </View>
-  </ImageBackground>
+                <ImageBackground
+                  source={require('../../../assets/Rectanglelist.png')}
+              style={[
+                  styles.cardBackground,
+                  {
+                    width: isTablet ? wp('45%') : wp('45%'),
+                    height: isTablet ? hp('12%') : hp('8%'),
+                    marginRight: isTablet ? wp('3%') : wp('4%'),
+                  }
+                ]}
+                  imageStyle={styles.cardImage}
+                >
+              
+                  <View style={styles.cardContent}>
+                    <Image source={require('../../../assets/Approvedicon.png')} style={styles.cardIcon} resizeMode="contain" />
+                    <TouchableOpacity onPress={() => navigation.navigate('ApprovedList')}>
+                      <Text style={styles.cardLabel}>Approved</Text>
+                    </TouchableOpacity>
+                  </View>
+                </ImageBackground>
                 <View style={{ marginTop: 10 }}>
-                    <ImageBackground
-    source={require('../../../assets/Rectanglelist.png')}
-    style={styles.cardBackground}
-    imageStyle={styles.cardImage}
-  >
-    <View style={styles.cardContent}>
-      <Image source={require('../../../assets/completed.png')} style={styles.cardIcon} resizeMode="contain" />
-      <TouchableOpacity onPress={() => navigation.navigate('Outstanding')}>
-        <Text style={styles.cardLabel}>Outstanding</Text>
-      </TouchableOpacity>
-    </View>
-  </ImageBackground>
+                  <ImageBackground
+                    source={require('../../../assets/Rectanglelist.png')}
+                     style={[
+                  styles.cardBackground,
+                  {
+                    width: isTablet ? wp('45%') : wp('45%'),
+                    height: isTablet ? hp('12%') : hp('8%'),
+                    marginRight: isTablet ? wp('3%') : wp('4%'),
+                  }
+                ]}
+                  imageStyle={styles.cardImage}
+                >
+                    <View style={styles.cardContent}>
+                      <Image source={require('../../../assets/completed.png')} style={styles.cardIcon} resizeMode="contain" />
+                      <TouchableOpacity onPress={() => navigation.navigate('Outstanding')}>
+                        <Text style={styles.cardLabel}>Outstanding</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </ImageBackground>
                 </View>
               </View>
               <View >
                 <ImageBackground
-    source={require('../../../assets/Rectanglelist.png')}
-    style={styles.cardBackground}
-    imageStyle={styles.cardImage}
-  >
-    <View style={styles.cardContent}>
-      <Image source={require('../../../assets/completed.png')} style={styles.cardIcon} resizeMode="contain" />
-      <TouchableOpacity >
-        <Text style={styles.cardLabel}>Empty</Text>
-      </TouchableOpacity>
-    </View>
-  </ImageBackground>
+                  source={require('../../../assets/Rectanglelist.png')}
+                  style={[
+                  styles.cardBackground,
+                  {
+                    width: isTablet ? wp('45%') : wp('45%'),
+                    height: isTablet ? hp('12%') : hp('8%'),
+                    marginRight: isTablet ? wp('3%') : wp('4%'),
+                  }
+                ]}
+                  imageStyle={styles.cardImage}
+                >
+                  <View style={styles.cardContent}>
+                    <Image source={require('../../../assets/completed.png')} style={styles.cardIcon} resizeMode="contain" />
+                    <TouchableOpacity >
+                      <Text style={styles.cardLabel}>Empty</Text>
+                    </TouchableOpacity>
+                  </View>
+                </ImageBackground>
                 <View style={{ marginTop: 10 }}>
-                   <ImageBackground
-    source={require('../../../assets/Rectanglelist.png')}
-    style={styles.cardBackground}
-    imageStyle={styles.cardImage}
-  >
-    <View style={styles.cardContent}>
-      <Image source={require('../../../assets/saleorder.png')} style={styles.cardIcon} resizeMode="contain" />
-      <TouchableOpacity>
-        <Text style={styles.cardLabel}>Empty</Text>
-      </TouchableOpacity>
-    </View>
-  </ImageBackground>
+                  <ImageBackground
+                    source={require('../../../assets/Rectanglelist.png')}
+                    style={[
+                  styles.cardBackground,
+                  {
+                    width: isTablet ? wp('45%') : wp('45%'),
+                    height: isTablet ? hp('12%') : hp('8%'),
+                    marginRight: isTablet ? wp('3%') : wp('4%'),
+                  }
+                ]}
+                  imageStyle={styles.cardImage}
+                >
+                    <View style={styles.cardContent}>
+                      <Image source={require('../../../assets/saleorder.png')} style={styles.cardIcon} resizeMode="contain" />
+                      <TouchableOpacity>
+                        <Text style={styles.cardLabel}>Empty</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </ImageBackground>
                 </View>
               </View>
             </ScrollView>
@@ -523,33 +612,33 @@ useEffect(() => {
             >
               <View>
                 <View style={{ flexDirection: 'row', marginTop: 20, backgroundColor: 'transparent' }}>
-               <ImageBackground
-  source={require('../../../assets/Chartbg.png')}
-  style={[styles.chartContainer, { width: chartWidth, height: chartHeight }]}
-  imageStyle={{ borderRadius: hp('1%') }}
->
-  <Text style={[styles.ChartText1, { alignSelf: 'flex-start', marginLeft: wp('2%') }]}>Sales</Text>
-  <BarChartSolid
-    data={[30, 45, 28, 80, 99, 43, 50]}
-    height={chartHeight * 0.5}
-    color="#0C439E"
-  />
-  <Text style={[styles.ChartText2, { alignSelf: 'flex-start', marginLeft: wp('2%') }]}>80 MT</Text>
-</ImageBackground>             
-                 <ImageBackground
-  source={require('../../../assets/Chartbg.png')}
-  style={[styles.chartContainer, { width: chartWidth, height: chartHeight }]}
-  imageStyle={{ borderRadius: hp('1%') }}
->
-  <Text style={[styles.ChartText1, { alignSelf: 'flex-start', marginLeft: wp('2%') }]}>Collections</Text>
-   <LineChart
+                  <ImageBackground
+                    source={require('../../../assets/Chartbg.png')}
+                    style={[styles.chartContainer, { width: chartWidth, height: chartHeight }]}
+                    imageStyle={{ borderRadius: hp('1%') }}
+                  >
+                    <Text style={[styles.ChartText1, { alignSelf: 'flex-start', marginLeft: wp('2%') }]}>Sales</Text>
+                    <BarChartSolid
+                      data={[30, 45, 28, 80, 99, 43, 50]}
+                      height={chartHeight * 0.5}
+                      color="#0C439E"
+                    />
+                    <Text style={[styles.ChartText2, { alignSelf: 'flex-start', marginLeft: wp('2%') }]}>80 MT</Text>
+                  </ImageBackground>
+                  <ImageBackground
+                    source={require('../../../assets/Chartbg.png')}
+                    style={[styles.chartContainer, { width: chartWidth, height: chartHeight }]}
+                    imageStyle={{ borderRadius: hp('1%') }}
+                  >
+                    <Text style={[styles.ChartText1, { alignSelf: 'flex-start', marginLeft: wp('2%') }]}>Collections</Text>
+                    <LineChart
                       transparent={true}
                       data={{
                         labels: [],
                         datasets: [{ data: [20, 40, 35, 60, 55, 40, 70, 60, 50] }],
                       }}
                       width={chartWidth * 0.9}
-    height={chartHeight * 0.5}
+                      height={chartHeight * 0.5}
                       fromZero
                       withDots={false}
                       withShadow={false}
@@ -580,19 +669,19 @@ useEffect(() => {
                     <Text style={[styles.ChartText2, { marginRight: '40%' }]}>₹ 1,00,000</Text>
                   </ImageBackground>
 
-                 <ImageBackground
-  source={require('../../../assets/Chartbg.png')}
-  style={[styles.chartContainer, { width: chartWidth, height: chartHeight }]}
-  imageStyle={{ borderRadius: hp('1%') }}
->
-  <Text style={[styles.ChartText1, { alignSelf: 'flex-start', marginLeft: wp('2%') }]}>Sales</Text>
-  <BarChartSolid
-    data={[30, 45, 28, 80, 99, 43, 50]}
-    height={chartHeight * 0.5}
-    color="#0C439E"
-  />
-  <Text style={[styles.ChartText2, { alignSelf: 'flex-start', marginLeft: wp('2%') }]}>80 MT</Text>
-</ImageBackground>
+                  <ImageBackground
+                    source={require('../../../assets/Chartbg.png')}
+                    style={[styles.chartContainer, { width: chartWidth, height: chartHeight }]}
+                    imageStyle={{ borderRadius: hp('1%') }}
+                  >
+                    <Text style={[styles.ChartText1, { alignSelf: 'flex-start', marginLeft: wp('2%') }]}>Sales</Text>
+                    <BarChartSolid
+                      data={[30, 45, 28, 80, 99, 43, 50]}
+                      height={chartHeight * 0.5}
+                      color="#0C439E"
+                    />
+                    <Text style={[styles.ChartText2, { alignSelf: 'flex-start', marginLeft: wp('2%') }]}>80 MT</Text>
+                  </ImageBackground>
                 </View>
               </View>
             </ScrollView>
@@ -626,19 +715,13 @@ const styles = StyleSheet.create({
     marginTop: hp('0.5%'),
     marginLeft: wp('3%'),
   },
-
-  // 🔹 Circle Backgrounds (Sales / Collection / Visit)
   circleBackground1: {
-    width: wp('30%'),
-    height: hp('22%'),
     justifyContent: 'center',
     alignItems: 'flex-start',
     marginLeft: wp('3%'),
     marginTop: hp('1%'),
   },
   circleBackground2: {
-    width: wp('34%'),
-    height: hp('22%'),
     justifyContent: 'center',
     alignItems: 'flex-start',
     marginLeft: wp('2%'),
@@ -649,10 +732,7 @@ const styles = StyleSheet.create({
     height: hp('22%'),
     justifyContent: 'center',
     alignItems: 'flex-start',
-    marginLeft: wp('1.5%'),
-    marginTop: hp('1%'),
   },
-
   targetText: {
     fontFamily: 'Inter-Regular',
     fontSize: hp('1.4%'),
@@ -664,7 +744,6 @@ const styles = StyleSheet.create({
     fontSize: hp('1.8%'),
     color: '#f4f4f5ff',
     fontWeight: 'bold',
-    marginLeft: wp('0.5%'),
   },
   targetTextTitleVisit: {
     fontFamily: 'Inter-Bold',
@@ -693,7 +772,6 @@ const styles = StyleSheet.create({
     color: '#f4f4f5ff',
     marginTop: hp('0.4%'),
   },
-
   ChartText1: {
     fontFamily: 'Inter-SemiBold',
     fontSize: hp('2%'),
@@ -712,7 +790,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginHorizontal: wp('1%'),
     marginVertical: hp('1%'),
-    marginLeft:hp('1.3%')
+    marginLeft: hp('1.3%')
   },
 
   center: {
@@ -784,11 +862,8 @@ const styles = StyleSheet.create({
     paddingVertical: hp('1%'),
   },
   cardBackground: {
-    width: wp('45%'),
-    height: hp('8%'),
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: wp('4%'),
   },
   cardImage: {
     borderRadius: hp('1%'),

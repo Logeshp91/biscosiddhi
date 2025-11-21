@@ -6,6 +6,7 @@ import postAccessReadReducer from "./postAccessRead.Reducer";
 import postConvertReducer from "./postConvert.Reducer";
 import postOutstandingReducer from "./postOutstanding.Reducer";
 import postCustomerListReducer from "./postCustomerList.Reducer";
+import notificationReducer from "./notificationReducer";
 const reducer =combineReducers({
 
 
@@ -16,6 +17,7 @@ postAccessReadReducer,
 postConvertReducer,
 postOutstandingReducer,
 postCustomerListReducer,
+notificationReducer,
 })
 
 export default reducer;
