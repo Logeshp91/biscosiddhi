@@ -55,6 +55,8 @@ const App = () => {
     setupFCM();
   }, []);
 
+  
+
   return (
     <Provider store={store}>
       <Navigation />
@@ -63,4 +65,3 @@ const App = () => {
 };
 
 export default App;
-

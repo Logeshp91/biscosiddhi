@@ -92,8 +92,6 @@ logEvent(analytics, 'screen_view', {
      requestAllPermissions();
    }, []);
  
-
-  // ✅ Fetch SIM info from native module
   const getSimNumbers = async () => {
     try {
       const { SimInfo } = NativeModules;
@@ -113,7 +111,6 @@ logEvent(analytics, 'screen_view', {
     }
   };
 
-  // ✅ One-time location fetch
   const fetchLocation = async () => {
     try {
       const hasPermission = await requestLocationPermission();
@@ -128,8 +125,8 @@ logEvent(analytics, 'screen_view', {
       console.log('❌ GPS fetch error', err);
     }
   };
+  
 
-  // ✅ Location permission helper
   const requestLocationPermission = async () => {
     const result = await check(PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION);
     if (result === RESULTS.GRANTED) return true;
@@ -137,7 +134,6 @@ logEvent(analytics, 'screen_view', {
     return ask === RESULTS.GRANTED;
   };
 
-  // ✅ Handle login
   const handleLogin = () => {
     if (!phone || !password) {
       Alert.alert('Validation', 'Username and password are required');
